@@ -1,35 +1,42 @@
 package main
 
-import "github.com/gofiber/fiber/v2"
+import (
+  "fmt"
+  "time"
 
+  "github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+)
 func main() {
   app := fiber.New();
 
+  // implementing inbuilt middlewares
+  app.Use(logger.New())
+  app.Use(recover.New())
+
+  // this is my custome middleware
+  app.Use(func(c *fiber.Ctx) error{
+    start := time.Now()
+    err := c.Next() // call the next handler
+    duration := time.Since(start)
+    fmt.Printf("Request %s took %v\n", c.OriginalURL(), duration)
+    return err
+  })
+  
+  // custome middleware to add in header
+  app.Use(func(c *fiber.Ctx) error{
+    c.Set("X-powered-By", "GFG-Fiber")
+    return c.Next()
+  })
+
+  // Roures
   app.Get("/", func(c *fiber.Ctx) error{
-    return c.SendString("Yes This application is working")
+    return c.SendString("YES ! I am working")
   })
 
-
-  app.Get("/hello/:name", func(c *fiber.Ctx) error{
-    name := c.Params("name")
-    return c.SendString("Hello" + name)
-  })
-
-  app.Post("/user", func(c *fiber.Ctx) error{
-    type User struct {
-      Name string `json:"name"`
-      Email string `json:"email"`
-    }
-
-    var user User
-    if err := c.BodyParser(&user); err != nil {
-      return c.Status(400).SendString("Invalid input")
-    }
-
-    return c.JSON(fiber.Map {
-      "message": "User created", 
-      "user": user,
-    })
+  app.Get("/panic", func(c *fiber.Ctx) error {
+    panic("Simulated crash!") // let's see middleware will work or not
   })
 
   app.Listen(":3000")
